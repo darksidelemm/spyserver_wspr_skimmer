@@ -150,10 +150,12 @@ Then, copy the wspr_capture service file to /etc/systemd/system matching the scr
 $ sudo cp wspr_capture.service /etc/systemd/system/wspr_capture_20.service
 $ sudo nano /etc/systemd/system/wspr_capture_20.service
 ```
+
 Edit the service file and update it to point to the appropriate script, e.g.:
 ```
 ExecStart=/home/pi/spyserver_wspr_skimmer/wspr_capture_20.sh
 ```
+
 Change the paths and User field if necessary.
 
 Start the processing service with:
@@ -161,6 +163,8 @@ Start the processing service with:
 $ sudo systemctl enable wspr_capture_20
 $ sudo systemctl start wspr_capture_20
 ```
+
+Repeat the above for each band you wish to monitor.
 
 ### Checking Status
 ```
