@@ -118,7 +118,7 @@ if __name__ == "__main__":
     SAMPLE_RATE = args.sample_rate
     COLLECT_LENGTH = args.collect_length
     OUTPUT_PATH = args.output_dir
-    TEMPORARY_FILE = OUTPUT_PATH + TEMPORARY_FILE
+    TEMPORARY_FILE = OUTPUT_PATH + f"temp_wspr_{RX_FREQ}.bin"
     MAX_COLLECT_SAMPLES = COLLECT_LENGTH*SAMPLE_RATE
 
     # stdin

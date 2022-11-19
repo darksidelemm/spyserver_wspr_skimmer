@@ -47,6 +47,11 @@ This project wouldn't be possible without miweber67's [spyserver_client](https:/
 ## Dependencies
 Full install instructions to come eventually I guess? For now here's what's needed to make this work.
 
+Packages to install on a Raspbian installation:
+```
+$ sudo apt-get install vim git cmake build-essential wsjtx libsamplerate0-dev libfftw3-dev
+```
+
 ### SpyServer Client
 
 https://github.com/miweber67/spyserver_client
@@ -54,7 +59,10 @@ https://github.com/miweber67/spyserver_client
 spyserver_client binary needs to be available on the system path as ss_iq
 e.g.
 ```
-$ sudo cp spyserver_client /usr/bin/ss_iq
+$ git clone https://github.com/miweber67/spyserver_client.git
+$ cd spyserver_client
+$ make
+$ sudo cp ss_client /usr/bin/ss_iq
 ```
 (spyserver_client really needs a better makefile with an install target)
 
@@ -63,22 +71,115 @@ Original repo is abandoned, use https://github.com/jketterl/csdr.git
 
 csdr binary needs to be available in the system path.
 
+```
+$ git clone https://github.com/jketterl/csdr.git
+$ cd csdr
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+$ sudo make install
+```
+
 ### WSPR Decoder
 We need k9an-wsprd from the WSJT-X project. 
 
-https://github.com/WSPRpi/WSPR-Decoder
+```
+$ sudo apt-get install wsjtx
+```
 
 
-## Running
-Incomplete!
+## Setup and Running
+The provided scripts can be used to setup a WSPR capture and processing system.
+By default all WSPR captures are saved to /dev/shm/, a RAMDisk setup by default on Raspbian installs.
+
+```
+$ git clone https://github.com/darksidelemm/spyserver_wspr_skimmer.git
+```
 
 * wspr_capture.sh - Connects to a spyserver using spyserver_client, demodulates USB, and writes out 2 minute files to disk.
-
 * wspr_process.py - Process the 2-minute files through WSPR-Decoder, post-process the output, and upload to WSPRNet.
 
 ```
 $ python3 wspr_process.py -p ./ -w ./wsprd -v MYCALL MYGRID
 ```
+
+
+### Processing Service
+Edit `wspr_process.sh` and update the CALLSIGN and GRID fields as appropriate.
+
+Then, copy the wspr_process service file:
+```
+$ sudo cp wspr_process.service /etc/systemd/system/
+$ sudo nano /etc/systemd/system/wspr_process.service
+```
+Edit /etc/systemd/system/wspr_process.service and update the paths (e.g. /home/pi) and User (pi) if not running from the pi user.
+
+Start the processing service with:
+```
+$ sudo systemctl enable wspr_process
+$ sudo systemctl start wspr_process
+```
+
+### Cleanup Cronjob
+In-case the processing script dies for some reason, it's useful to have a cron-job to clean-up any unprocessed files.
+The `cleanup.sh` script will delete any WSPR recordings in /dev/shm/ that are older than 10 minutes.
+
+Edit your user crontab by running:
+```
+$ crontab -e
+```
+add the line:
+```
+*/30 * * * * /home/pi/spyserver_wspr_skimmer/cleanup.sh
+```
+(Changing the path if necessary)
+
+### Capture Services
+(Could probably done done in a cleaner way, with a larger bash script?)
+
+The `wspr_capture.sh` script provides a template for setting up a capture process.
+Copy this file, renaming it to include the band info, e.g.
+```
+$ cp wspr_capture.sh wspr_capture_20.sh
+```
+Edit the script to include the appropriate frequency, and SpyServer host and port information.
+
+Then, copy the wspr_capture service file to /etc/systemd/system matching the script filename, e.g.
+```
+$ sudo cp wspr_capture.service /etc/systemd/system/wspr_capture_20.service
+$ sudo nano /etc/systemd/system/wspr_capture_20.service
+```
+Edit the service file and update it to point to the appropriate script, e.g.:
+```
+ExecStart=/home/pi/spyserver_wspr_skimmer/wspr_capture_20.sh
+```
+Change the paths and User field if necessary.
+
+Start the processing service with:
+```
+$ sudo systemctl enable wspr_capture_20
+$ sudo systemctl start wspr_capture_20
+```
+
+### Checking Status
+```
+$ sudo tail -f /var/log/syslog | grep wspr
+Nov 19 18:03:56 compute1 wspr_capture_30[8467]: 2022-11-19 18:03:56,797 INFO: Waiting for next start time: 20221119-073400Z
+Nov 19 18:03:59 compute1 wspr_capture_30[8467]: 2022-11-19 18:03:59,876 INFO: Opened new temporary file: /dev/shm/temp_wspr_10138700.bin
+Nov 19 18:03:59 compute1 wspr_capture_20[8454]: 2022-11-19 18:03:59,931 INFO: Opened new temporary file: /dev/shm/temp_wspr_14095600.bin
+Nov 19 18:04:29 compute1 wspr_process[8164]: 2022-11-19 18:04:29,705 INFO: Got 23 this cycle.
+Nov 19 18:05:56 compute1 wspr_capture_30[8467]: 2022-11-19 18:05:56,739 INFO: Reached 117 seconds, closed temporary file.
+Nov 19 18:05:56 compute1 wspr_capture_30[8467]: 2022-11-19 18:05:56,740 INFO: Moved temporary file to: /dev/shm/WSPR_10138700_20221119-073400Z.wav
+Nov 19 18:05:56 compute1 wspr_capture_30[8467]: 2022-11-19 18:05:56,740 INFO: Waiting for next start time: 20221119-073600Z
+Nov 19 18:05:56 compute1 wspr_capture_20[8454]: 2022-11-19 18:05:56,778 INFO: Reached 117 seconds, closed temporary file.
+Nov 19 18:05:56 compute1 wspr_capture_20[8454]: 2022-11-19 18:05:56,779 INFO: Moved temporary file to: /dev/shm/WSPR_14095600_20221119-073400Z.wav
+Nov 19 18:05:56 compute1 wspr_capture_20[8454]: 2022-11-19 18:05:56,779 INFO: Waiting for next start time: 20221119-073600Z
+Nov 19 18:06:00 compute1 wspr_capture_20[8454]: 2022-11-19 18:06:00,000 INFO: Opened new temporary file: /dev/shm/temp_wspr_14095600.bin
+Nov 19 18:06:00 compute1 wspr_capture_30[8467]: 2022-11-19 18:06:00,005 INFO: Opened new temporary file: /dev/shm/temp_wspr_10138700.bin
+```
+
+
 
 ## Development Notes
 
