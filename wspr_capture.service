@@ -1,14 +1,14 @@
 [Unit]
-Description=wspr_process
+Description=wspr_capture
 After=syslog.target
 
 [Service]
-ExecStart=/home/pi/spyserver_wspr_skimmer/wspr_process.sh
+ExecStart=/home/pi/spyserver_wspr_skimmer/wspr_capture.sh
 Restart=always
 RestartSec=120
 WorkingDirectory=/home/pi/spyserver_wspr_skimmer/
 User=pi
-SyslogIdentifier=wspr_process
+SyslogIdentifier=wspr_capture
 
 [Install]
 WantedBy=multi-user.target
