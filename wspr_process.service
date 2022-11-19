@@ -1,0 +1,16 @@
+[Unit]
+Description=wspr_process
+After=syslog.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/pi/spyserver_wspr_skimmer/wspr_process.sh
+Restart=always
+RestartSec=120
+WorkingDirectory=/home/pi/spyserver_wspr_skimmer/
+User=pi
+SyslogIdentifier=wspr_process
+
+[Install]
+WantedBy=multi-user.target
+
+
