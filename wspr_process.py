@@ -241,6 +241,7 @@ def upload_spots(spots, rx_callsign, rx_grid):
     # Concatenate all spots together.
     spot_lines = ""
     for spot in spots:
+        logging.debug("Spot Data: " + spot)
         spot_lines += spot + "\n"
 
     upload_data_bytes = spot_lines.encode()
@@ -395,6 +396,13 @@ if __name__ == "__main__":
                 logging.debug(f"Deleted file: {_filename}")
         
         logging.info(f"Got {len(current_spots)} this cycle.")
+
+        if(args.wspr_log):
+            _logfile = open(args.wspr_log,'a')
+            for _spot_line in current_spots:
+                _logfile.write(_spot_line + "\n")
+            _logfile.close()
+            logging.debug("Wrote spots out to log file " + args.wspr_log)
 
         # Upload!
         if len(current_spots) > 0:
