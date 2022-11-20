@@ -17,7 +17,6 @@ import glob
 import logging
 import os
 import os.path
-import re
 import requests
 import shutil
 import subprocess
@@ -47,9 +46,6 @@ WAIT_TIME = 10
 
 # Storage of processed files in don't delete mode.
 processed_files = []
-
-# Instance of a regex to decode WSPR callsigns
-wspr_splitter_pattern = re.compile("[<]?([A-Z0-9/]*)[>]?\s([A-R]{2}[0-9]{2}[\w]{0,2})\s([0-9]+)")
 
 
 def get_file_info(filename):
@@ -102,9 +98,10 @@ def process_wspr(input, wsprd_path = WSPRD_PATH):
     
     # Parameters used:
     # -w = wideband search
-    # -d = Deeper decode (takes longer)
+    # -d = Deeper decode (takes longer) - DISABLED for now...
     # -f <freq> - Set receiver dual frequency.
-    _decoder_command = f"{wsprd_path} -w -d -f \"{_file_info['freq']/1e6:.5f}\" {input}"
+    # -H - Do not use hash table. This means Type 2/3 messages will NOT be decoder.
+    _decoder_command = f"{wsprd_path} -w -H -f \"{_file_info['freq']/1e6:.5f}\" {input}"
 
     logging.debug(f"Running decoder command: {_decoder_command}")
 
@@ -154,54 +151,64 @@ def process_wsprd_output(raw_output, spot_datetime):
 
     for msg in raw_output.split("\n"):
 
-        msg = msg.rstrip()
+        try:
+            msg = msg.rstrip()
 
-        # known debug messages we know to skip
-        if msg.startswith("<DecodeFinished>"):  # this is what jt9 std output
-            continue
-        if msg.startswith(" EOF on input file"):  # this is what jt9 std output
-            continue
-        if msg == "":
-            continue
+            #logging.debug("Raw WSJTD Line: " + msg)
 
-        wsjt_msg = msg[29:].strip()
-        spot = {
-            #"timestamp": 
-            "db": float(msg[5:8]),
-            "dt": float(msg[9:13]),
-            "freq": float(msg[14:24]),
-            "drift": int(msg[25:28]),
-            "mode": "WSPR",
-            # FIXME: No idea what sync_quality used for but we need to add this field to bypass the upload check,
-            # it seems to useless because the static files downloaded from wsprnet.org doesn't contain this field.
-            # i don't want to read it from wspr_spots.txt so i simply pick a random value :)
-            "sync_quality": 0.7,
-            "msg": wsjt_msg,
-        }
+            # known debug messages we know to skip
+            if msg.startswith("<DecodeFinished>"):  # this is what jt9 std output
+                continue
+            if msg.startswith(" EOF on input file"):  # this is what jt9 std output
+                continue
+            if msg == "":
+                continue
 
-        m = wspr_splitter_pattern.match(wsjt_msg)
-        if m is None:
-            continue
-        # TODO: handle msg type "<G0EKQ>        IO83PI 37"
-        spot.update({"callsign": m.group(1), "locator": m.group(2), "watt": int(m.group(3))})
+            fields = msg.split()
 
-        # Convert back to the output format needed by WSPRnet
-        mode = 2
-        output.append("%s  %1.2f %d  %1.2f   %2.6f %s         %s   %d  %d  %d" % (
-            # wsprnet needs GMT time
-            spot_datetime.strftime("%y%m%d %H%M"),
-            spot["sync_quality"],
-            spot["db"],
-            spot["dt"],
-            # freq in MHz for wsprnet
-            spot["freq"],
-            spot["callsign"],
-            spot["locator"],
-            spot["watt"],
-            spot["drift"],
-            mode
-        ))
-        # 221009 0936   5 -10 -0.3 14.0970249  VK4TQ QG62 20          -1     1    0
+            spot = {
+                #"timestamp": 
+                "db": float(fields[1]),
+                "dt": float(fields[2]),
+                "freq": float(fields[3]),
+                "drift": int(fields[4]),
+                "mode": "WSPR",
+                # FIXME: No idea what sync_quality used for but we need to add this field to bypass the upload check,
+                # it seems to useless because the static files downloaded from wsprnet.org doesn't contain this field.
+                # i don't want to read it from wspr_spots.txt so i simply pick a random value :)
+                "sync_quality": 0.7,
+                "callsign": fields[5],
+                "locator": fields[6],
+                "watt": int(fields[7])
+            }
+
+            if "<" in spot["callsign"]:
+                # Hashed callsign detected, remove angle brackets.
+                spot["callsign"] = spot["callsign"].replace("<","")
+                spot["callsign"] = spot["callsign"].replace(">","")
+
+            #logging.debug("Processed Spot: " + str(spot))
+
+            # Convert back to the output format needed by WSPRnet
+            mode = 2
+            output.append("%s  %1.2f %d  %1.2f   %2.6f %s         %s   %d  %d  %d" % (
+                # wsprnet needs GMT time
+                spot_datetime.strftime("%y%m%d %H%M"),
+                spot["sync_quality"],
+                spot["db"],
+                spot["dt"],
+                # freq in MHz for wsprnet
+                spot["freq"],
+                spot["callsign"],
+                spot["locator"],
+                spot["watt"],
+                spot["drift"],
+                mode
+            ))
+            # 221009 0936   5 -10 -0.3 14.0970249  VK4TQ QG62 20          -1     1    0
+        
+        except Exception as e:
+            logging.warning(f"Error parsing line ({msg}) - {str(e)}")
 
     return output
         
