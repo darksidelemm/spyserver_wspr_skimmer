@@ -197,8 +197,11 @@ if __name__ == "__main__":
                     _current_samples = 0
                     
                     # Move file to destination filename.
-                    shutil.move(TEMPORARY_FILE, _current_filename)
-                    logging.info(f"Moved temporary file to: "+ _current_filename)
+                    try:
+                        shutil.move(TEMPORARY_FILE, _current_filename)
+                        logging.info(f"Moved temporary file to: "+ _current_filename)
+                    except Exception as e:
+                        logging.error(f"Error moving temporary file {TEMPORARY_FILE}: " + str(e))
 
                     _next_start = get_next_start_datetime()
                     _state = "WAITING"
