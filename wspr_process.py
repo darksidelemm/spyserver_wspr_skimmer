@@ -42,7 +42,7 @@ DONT_DELETE = False
 
 REWRITE_DATETIME = True
 
-WAIT_TIME = 30
+WAIT_TIME = 10
 
 
 # Storage of processed files in don't delete mode.
@@ -100,7 +100,11 @@ def process_wspr(input, wsprd_path = WSPRD_PATH):
     if _file_info is None:
         return None
     
-    _decoder_command = f"{wsprd_path} -w -H -f \"{_file_info['freq']/1e6:.5f}\" {input}"
+    # Parameters used:
+    # -w = wideband search
+    # -d = Deeper decode (takes longer)
+    # -f <freq> - Set receiver dual frequency.
+    _decoder_command = f"{wsprd_path} -w -d -f \"{_file_info['freq']/1e6:.5f}\" {input}"
 
     logging.debug(f"Running decoder command: {_decoder_command}")
 
