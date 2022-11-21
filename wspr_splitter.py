@@ -12,9 +12,12 @@
 import argparse
 import datetime
 import logging
+import os
 import shutil
 import sys
+import time
 import wave
+from threading import Thread
 
 # Global parameters which will be over-written by command-line options
 # Receive frequency, in Hz (used in the output filename)
@@ -32,6 +35,13 @@ TIME_THRESHOLD = 0.2
 
 # Collection length (<120 second WSPR time window)
 COLLECT_LENGTH = 117
+
+
+# Timeot
+DATA_TIMEOUT = 10
+
+# Last data time
+last_data = time.time()
 
 
 def round_time(dt=None, date_delta=datetime.timedelta(minutes=2), to='up'):
@@ -67,6 +77,16 @@ def get_next_start_datetime():
     return round_time(_now, date_delta=datetime.timedelta(minutes=2), to='up')
 
 
+def watchdog_thead():
+    global last_data
+
+    while True:
+        if (time.time() - last_data) > DATA_TIMEOUT:
+            logging.critical(f"No incoming data for {DATA_TIMEOUT} seconds. Exiting and re-starting,")
+            # Kill this process the harsh way, to be sure it exits.
+            os._exit(1)
+        
+        time.sleep(1)
 
 if __name__ == "__main__":
 
@@ -135,6 +155,10 @@ if __name__ == "__main__":
 
     logging.info("Waiting for next start time: " + _next_start.strftime("%Y%m%d-%H%M%SZ"))
 
+    # Start Watchdog thread.
+    watchdog = Thread(target=watchdog_thead)
+    watchdog.start()
+
     while True:
         # Read in 0.1 seconds of samples at a time.
         _data = _in.read(int(SAMPLE_RATE*SAMPLE_WIDTH*0.1)) 
@@ -144,7 +168,11 @@ if __name__ == "__main__":
             logging.error("stdin closed, exiting.")
             sys.exit(0)
         
+        # Update timer
+        last_data = time.time()
+
         _time_delta = abs((datetime.datetime.utcnow() - _next_start).total_seconds())
+
 
         if _state == "WAITING":
             # Waiting for the next start time.
