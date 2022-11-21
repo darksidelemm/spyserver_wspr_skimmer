@@ -380,6 +380,9 @@ if __name__ == "__main__":
             continue
 
         for _filename in _wav_files:
+            logging.info(f"Found file: {os.path.basename(_filename)}")
+
+        for _filename in _wav_files:
             # Don't re-process anything in the processed files list.
             if _filename in processed_files:
                 continue

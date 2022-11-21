@@ -18,18 +18,21 @@ Hence, this repository. I'm going to aim to keep things simple. No band hopping,
 
 ## TODO List
 * Capture / Splitter
-  * [ ] Detection of dropped connection and restart. (Could be done by exiting when no samples, and just restarting the process?)
+  * [x] Detection of dropped connection and restart. (Could be done by exiting when no samples, and just restarting the process?)
   * [ ] Long-term test of sample alignment - do we 'slip' over time?
   * [ ] Make script take input from environment variables for use in Docker container?
 
 * Processing / Decoding
   * [x] Detection of new files.
   * [x] Run wsprd and collect output
-  * [x] Actually process the output from 'mainline' wsprd, not a weird fork. Refer here for parsing example: https://github.com/lazywalker/DigiSkimmer/blob/master/digiskr/wsjt.py#L272
-  * [ ] Detect errors from wsprd
+  * [x] Actually process the output from 'mainline' wsprd, not a weird fork. DONE, without using regex...
+  * [x] Detect errors from wsprd
   * [x] Post-process WSPR spots to update date/time
-  * [ ] Write WSPR spots to local file if enabled
+  * [x] Write WSPR spots to local file if enabled
   * [x] Batch upload spots to WSPRNet - Tentatively working?
+  * [ ] Run decoders for multiple bands data in multiple processes. (Will this break the files that wsprd generates?)
+  * [ ] Add command-line options for selecting deep decoding, and enabling of hash tables.
+  * [ ] Figure out how to get wsprd to look for a hash table in a particular location, to avoid hash tables for different bands colliding.
 
 * Docker Image
 
