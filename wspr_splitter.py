@@ -18,6 +18,7 @@ import sys
 import time
 import wave
 from threading import Thread
+from spyserver_client import USBDemod
 
 # Global parameters which will be over-written by command-line options
 # Receive frequency, in Hz (used in the output filename)
@@ -42,6 +43,9 @@ DATA_TIMEOUT = 10
 
 # Last data time
 last_data = time.time()
+
+# USB Demodulator object
+usb_demod = None
 
 
 def round_time(dt=None, date_delta=datetime.timedelta(minutes=2), to='up'):
@@ -78,12 +82,13 @@ def get_next_start_datetime():
 
 
 def watchdog_thead():
-    global last_data
+    global last_data, usb_demod
 
     while True:
         if (time.time() - last_data) > DATA_TIMEOUT:
             logging.critical(f"No incoming data for {DATA_TIMEOUT} seconds. Exiting and re-starting,")
             # Kill this process the harsh way, to be sure it exits.
+            usb_demod.close()
             os._exit(1)
         
         time.sleep(1)
@@ -92,6 +97,19 @@ if __name__ == "__main__":
 
   # Command line arguments.
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--hostname",
+        default="localhost",
+        type=str,
+        help=f"SpyServer Hostname. Default: localhost",
+    )
+    parser.add_argument(
+        "-p",
+        "--port",
+        default=5555,
+        type=int,
+        help=f"SpyServer Port. Default: 5555",
+    )
     parser.add_argument(
         "-f",
         "--rx_freq",
@@ -141,8 +159,14 @@ if __name__ == "__main__":
     TEMPORARY_FILE = OUTPUT_PATH + f"temp_wspr_{RX_FREQ}.bin"
     MAX_COLLECT_SAMPLES = COLLECT_LENGTH*SAMPLE_RATE
 
-    # stdin
-    _in = sys.stdin.buffer
+
+    # Start SSB Demodulator
+    usb_demod = USBDemod(
+        hostname=args.hostname,
+        port=args.port,
+        frequency=args.rx_freq,
+        sample_rate=args.sample_rate
+    )
 
     _next_start = get_next_start_datetime()
 
@@ -161,12 +185,13 @@ if __name__ == "__main__":
 
     while True:
         # Read in 0.1 seconds of samples at a time.
-        _data = _in.read(int(SAMPLE_RATE*SAMPLE_WIDTH*0.1)) 
+        _data = usb_demod.read(int(SAMPLE_RATE*SAMPLE_WIDTH*0.1)) 
 
         if _data == b'':
             # No data means STDIN has closed. Bomb out here.
             logging.error("stdin closed, exiting.")
-            sys.exit(0)
+            usb_demod.close()
+            os._exit(1)
         
         # Update timer
         last_data = time.time()
