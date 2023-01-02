@@ -83,7 +83,7 @@ def get_file_info(filename):
 
 
 
-def process_wspr(input, wsprd_path = WSPRD_PATH):
+def process_wspr(input, wsprd_path = WSPRD_PATH, deep_search=False):
     """ Attempt to run an input file through wsprd, and return the output as an array of lines """
     # Check file exists.
     if os.path.isfile(input) is False:
@@ -100,8 +100,9 @@ def process_wspr(input, wsprd_path = WSPRD_PATH):
     # -w = wideband search
     # -d = Deeper decode (takes longer) - DISABLED for now...
     # -f <freq> - Set receiver dual frequency.
-    # -H - Do not use hash table. This means Type 2/3 messages will NOT be decoder.
-    _decoder_command = f"{wsprd_path} -w -H -f \"{_file_info['freq']/1e6:.5f}\" {input}"
+    # -H - Do not use hash table. This means Type 2/3 messages will NOT be decoded.
+    _deep_search = "-d " if deep_search else ""
+    _decoder_command = f"{wsprd_path} -w -H {_deep_search} -f \"{_file_info['freq']/1e6:.5f}\" {input}"
 
     logging.debug(f"Running decoder command: {_decoder_command}")
 
@@ -344,6 +345,9 @@ if __name__ == "__main__":
         help=f"File to write WSPR log data to. Default: Disabled",
     )
     parser.add_argument(
+        "--deep", help="Use deep search when decoding (takes longer).", action="store_true", default=False
+    )
+    parser.add_argument(
         "-d", "--dont_delete", help="Don't delete files after processing.", action="store_true"
     )
     parser.add_argument(
@@ -388,7 +392,7 @@ if __name__ == "__main__":
                 continue
 
             # Attempt to decode any WSPR signals within the file.
-            _wsprd_output = process_wspr(_filename, wsprd_path=WSPRD_PATH)
+            _wsprd_output = process_wspr(_filename, wsprd_path=WSPRD_PATH, deep_search=args.deep)
 
             if _wsprd_output is None:
                 # No output, continue on.
